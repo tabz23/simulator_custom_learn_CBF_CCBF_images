@@ -138,6 +138,7 @@ def compute_cbf_loss(cbf_model, combined_model, batch, device,
     unsafe_loss_sum = 0
     cql_actions_loss_sum = 0
     logsumexp_term = 0
+    avg_random_cbf_value = 0  # Initialize for tracking random CBF values
 
     # Process current states
     # Encode current state to latent representation (without gradients for VAE)
@@ -236,7 +237,7 @@ def compute_cbf_loss(cbf_model, combined_model, batch, device,
             if all_random_next_B:
                 # Stack all CBF values for random actions
                 stacked_B_values = torch.stack(all_random_next_B, dim=1)
-                
+                avg_random_cbf_value = torch.mean(stacked_B_values).item()
                 # Combine with the actual next state CBF value
                 combined_B_values = torch.cat([stacked_B_values, actual_next_B.unsqueeze(1)], dim=1)
                 
@@ -274,7 +275,8 @@ def compute_cbf_loss(cbf_model, combined_model, batch, device,
         'unsafe_loss': unsafe_loss_sum,
         'gradient_loss': gradient_loss_sum,
         'cql_actions_loss': cql_actions_loss_sum,
-        'logsumexp': logsumexp_term
+        'logsumexp': logsumexp_term,
+        'avg_random_cbf': avg_random_cbf_value  # NEW: Add to metrics dictionary
     }
     
     return total_loss, metrics
@@ -311,7 +313,8 @@ def train_cbf(combined_model, cbf_model, train_loader, val_loader, optimizer, de
             'safe_loss': 0.0,
             'unsafe_loss': 0.0,
             'gradient_loss': 0.0,
-            'cql_actions_loss': 0.0
+            'cql_actions_loss': 0.0,
+            'avg_random_cbf': 0.0  
         }
         
         # Training loop
@@ -348,6 +351,7 @@ def train_cbf(combined_model, cbf_model, train_loader, val_loader, optimizer, de
                 'train_cql_actions_loss': metrics['cql_actions_loss'],
                 'global_step': global_step,
                 'logsumexp': metrics['logsumexp'],
+                'train_avg_random_cbf': metrics['avg_random_cbf'],
                 'epoch': epoch
             })
             
@@ -370,7 +374,8 @@ def train_cbf(combined_model, cbf_model, train_loader, val_loader, optimizer, de
             'safe_loss': 0.0,
             'unsafe_loss': 0.0,
             'gradient_loss': 0.0,
-            'cql_actions_loss': 0.0
+            'cql_actions_loss': 0.0,
+            'avg_random_cbf': 0.0 
         }
         
         val_batches = 0
@@ -409,6 +414,7 @@ def train_cbf(combined_model, cbf_model, train_loader, val_loader, optimizer, de
             'val_unsafe_loss': epoch_val_metrics['unsafe_loss'],
             'val_gradient_loss': epoch_val_metrics['gradient_loss'],
             'val_cql_actions_loss': epoch_val_metrics['cql_actions_loss'],
+            'val_avg_random_cbf': epoch_val_metrics['avg_random_cbf'],  
             'epoch': epoch
         })
         
